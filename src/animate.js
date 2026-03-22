@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import { renderer, scene, camera } from "./scene.js";
 import { jellyfishContainer, jellyfishState } from "./jellyfish.js";
 import { cursorTarget, interactionState, flushMouseMove } from "./interaction.js";
