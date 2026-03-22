@@ -17,7 +17,7 @@ renderer.toneMappingExposure = 1.2;
 // --- Scene ---
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020813);
-scene.fog = new THREE.FogExp2(0xffffff, 0.08);
+scene.fog = new THREE.FogExp2(0x020813, 0.08);
 
 // --- Camera ---
 export const camera = new THREE.PerspectiveCamera(
@@ -43,6 +43,11 @@ scene.add(backLight);
 const fillLight = new THREE.DirectionalLight(0x88ccff, 3);
 fillLight.position.set(0, -10, 5);
 scene.add(fillLight);
+
+// Soft off-screen ambient glow — positioned far upper-left outside the view
+const offScreenGlow = new THREE.PointLight(0x6699cc, 1.8, 60);
+offScreenGlow.position.set(-18, 14, -6);
+scene.add(offScreenGlow);
 
 // Exported so jellyfish.js can attach it to the loaded model
 export const innerGlowLight = new THREE.PointLight(0x00ffff, 10.0, 15);
