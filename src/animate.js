@@ -82,6 +82,8 @@ export function animate() {
     const targetRotX = _frameVel.y * 15; // move up → lean forward
     const fx = (targetRotZ - jiggle.rotZ) * STIFFNESS - jiggle.velZ * DAMPING;
     const fy = (targetRotX - jiggle.rotX) * STIFFNESS - jiggle.velX * DAMPING;
+    // Symplectic (semi-implicit) Euler: velocity is updated before position
+    // at half-step weight to keep the spring stable without sub-stepping.
     jiggle.velZ += fx * delta * 0.5;
     jiggle.velX += fy * delta * 0.5;
     jiggle.rotZ += jiggle.velZ * delta * 0.5;
