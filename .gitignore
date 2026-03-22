@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Large binary assets — exceed GitHub's 100 MB file size limit
+src/assets/*.mp4
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
