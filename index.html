@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>interactive_artworks</title>
+  </head>
+  <body>
+    <canvas id="bg"></canvas>
+    <div id="video-container">
+      <video
+        src="src/assets/edit_13.mp4"
+        playsinline
+        preload="auto"
+        class="background-video"></video>
+      <div id="video-controls">
+        <button id="play-btn" aria-label="Play/Pause">
+          <svg id="icon-play" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" /></svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" style="display:none">
+            <rect x="5" y="3" width="4" height="18" />
+            <rect x="15" y="3" width="4" height="18" />
+          </svg>
+        </button>
+        <span id="time-current">0:00</span>
+        <input id="scrubber" type="range" min="0" max="100" value="0" step="0.1" />
+        <span id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
