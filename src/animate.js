@@ -1,7 +1,6 @@
-import * as THREE from "three";
 import { renderer, scene, camera } from "./scene.js";
 import { jellyfishContainer, jellyfishState } from "./jellyfish.js";
-import { cursorTarget, interactionState } from "./interaction.js";
+import { cursorTarget, interactionState, flushMouseMove } from "./interaction.js";
 import { updateBubbles } from "./bubbles.js";
 import { theaterState, fleeTarget, updateTheater } from "./theater.js";
 
@@ -39,6 +38,11 @@ let elapsed = 0;
 
 export function animate() {
   requestAnimationFrame(animate);
+
+  // Drain the most recent mouse position exactly once per frame —
+  // avoids 200+ raycasts/s that the raw mousemove handler would otherwise trigger
+  flushMouseMove();
+
   const now = performance.now();
   const delta = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
