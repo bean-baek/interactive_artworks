@@ -3,7 +3,7 @@ import { renderer, scene, camera } from "./scene.js";
 import { jellyfishContainer, jellyfishState } from "./jellyfish.js";
 import { cursorTarget, interactionState } from "./interaction.js";
 import { updateBubbles } from "./bubbles.js";
-import { theaterState, fleeTarget, updateTheater } from "./theater.js";
+import { theaterState, fleeTarget, updateTheater } from "./theater.js"; // 파일 경로 확인 필수!
 
 // --- Spring constants ---
 // Body lean (jiggle): reacts to frame-to-frame position delta
@@ -49,14 +49,18 @@ export function animate() {
     jellyfishState;
 
   if (jellyfish && jellyfishContainer) {
-    // 1. Position lerp — cursor follow normally; flee to top-right on theater trigger
-    const isFleeing = theaterState.fleeing || theaterState.done;
-    const posTarget = isFleeing ? fleeTarget : cursorTarget;
-    const followSpeed = isFleeing
-      ? 1 - Math.pow(0.15, delta) // faster flee
-      : 1 - Math.pow(0.6, delta); // normal slow drift
+    updateTheater(delta);
+
+    let activeTarget = cursorTarget;
+    let currentSpeed = 1 - Math.pow(0.65, delta);
+
+    if (theaterState.fleeing) {
+      activeTarget = fleeTarget;
+      currentSpeed = 1 - Math.pow(0.6, delta); // lower base = faster flee
+    }
+
     _prevJellyPos.copy(jellyPos);
-    jellyPos.lerp(posTarget, followSpeed);
+    jellyPos.lerp(activeTarget, currentSpeed); // 커서 대신 activeTarget으로 이동
     _frameVel.subVectors(jellyPos, _prevJellyPos);
 
     jellyfishContainer.position.copy(jellyPos);
@@ -136,9 +140,7 @@ export function animate() {
     }
   }
 
-  updateBubbles(elapsed);
-  updateTheater(delta);
-
   if (mixer) mixer.update(delta);
+  updateBubbles(elapsed);
   renderer.render(scene, camera);
 }
