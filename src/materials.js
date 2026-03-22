@@ -70,6 +70,5 @@ export const tentacleMaterial = new THREE.MeshPhysicalMaterial({
   emissiveIntensity: 0.4,
   transparent: true,
   opacity: 0.8,
-  // side: THREE.DoubleSide,
   reflectivity: 900,
 });
