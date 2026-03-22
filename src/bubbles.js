@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { scene } from "./scene.js";
 
 const BUBBLE_COUNT = 55;
-const SPARKLE_COUNT = 90;
 
 // --- Textures ---
 function createBubbleTexture() {
@@ -33,7 +32,7 @@ function createBubbleTexture() {
     r * 0.28,
   );
   hl.addColorStop(0, "rgba(255, 255, 255, 0.85)");
-  hl.addColorStop(0.5, "rgba(220, 240, 255, 0.3)");
+  hl.addColorStop(0.5, "rgba(224, 220, 255, 0.3)");
   hl.addColorStop(1, "rgba(255, 255, 255, 0.0)");
   ctx.fillStyle = hl;
   ctx.fillRect(0, 0, size, size);
@@ -48,97 +47,66 @@ function createBubbleTexture() {
     r * 0.18,
   );
   hl2.addColorStop(0, "rgba(200, 230, 255, 0.35)");
-  hl2.addColorStop(0.5, "rgba(200, 230, 255, 0.0)");
+  hl2.addColorStop(0.5, "rgba(246, 251, 255, 0)");
   ctx.fillStyle = hl2;
   ctx.fillRect(0, 0, size, size);
 
   return new THREE.CanvasTexture(cvs);
 }
 
-function createSparkleTexture() {
-  const size = 128;
-  const cvs = document.createElement("canvas");
-  cvs.width = cvs.height = size;
-  const ctx = cvs.getContext("2d");
-  const cx = size / 2,
-    cy = size / 2;
-  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, size / 2);
-  grd.addColorStop(0, "rgba(220, 240, 255, 1.0)");
-  grd.addColorStop(0.5, "rgba(160, 211, 255, 0.24)");
-  grd.addColorStop(1, "rgba(80, 140, 255, 0.0)");
-  ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, size, size);
-  return new THREE.CanvasTexture(cvs);
-}
-
+// Texture is created once and shared across all bubble materials
 const bubbleTex = createBubbleTexture();
-const sparkleTex = createSparkleTexture();
 
 // --- Bubbles ---
-// Each bubble is a Sprite; per-bubble state tracked alongside it
+// Each bubble is a Sprite; per-bubble state tracked alongside it.
+// Each sprite needs its own SpriteMaterial because initial opacity varies per
+// bubble. The shared texture keeps GPU memory usage flat; only the JS-side
+// material objects are duplicated.
 const bubbles = [];
+// Collect materials for bulk disposal
+const _bubbleMaterials = [];
 
 for (let i = 0; i < BUBBLE_COUNT; i++) {
   const mat = new THREE.SpriteMaterial({
     map: bubbleTex,
     transparent: true,
-    opacity: 0.15 + Math.random() * 0.45,
+    opacity: 0.04 + Math.random() * 0.08,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
+  _bubbleMaterials.push(mat);
+
   const sprite = new THREE.Sprite(mat);
-  const s = 0.08 + Math.random() * 0.22;
+  // Wide size range: tiny wisps up to large slow orbs
+  const s = 0.008 + Math.pow(Math.random(), 2) * 0.55;
   sprite.scale.setScalar(s);
 
   // Spread initial positions so they don't all start at the bottom at once
   const x = (Math.random() - 0.5) * 20;
   const y = (Math.random() - 0.5) * 20; // random start across full height
-  const z = -0.5 - Math.random() * 2.5;
+  const z = -0.3 - Math.random() * 5; // wider depth spread
   sprite.position.set(x, y, z);
 
   scene.add(sprite);
 
   bubbles.push({
     sprite,
-    speed: 0.3 + Math.random() * 0.7, // upward drift speed
-    driftFreq: 0.4 + Math.random() * 0.5, // horizontal wobble frequency
-    driftAmp: 0.15 + Math.random() * 0.5, // horizontal wobble amplitude
-    phase: Math.random() * Math.PI * 2, // phase offset so they're desynchronised
+    speed: 0.06 + Math.random() * 0.14, // upward drift — slow, underwater
+    driftFreq: 0.1 + Math.random() * 0.2, // primary X wobble frequency
+    driftAmp: 0.08 + Math.random() * 0.25,
+    driftFreq2: 0.05 + Math.random() * 0.12, // secondary harmonic for organic curve
+    driftAmp2: 0.04 + Math.random() * 0.12,
+    phase: Math.random() * Math.PI * 2,
+    phase2: Math.random() * Math.PI * 2,
+    zFreq: 0.04 + Math.random() * 0.08, // slow depth oscillation
+    zAmp: 0.1 + Math.random() * 0.4,
+    zPhase: Math.random() * Math.PI * 2,
     originX: x,
+    originZ: z,
     resetY: -8,
     topY: 7.5,
   });
 }
-
-// --- Sparkles (Points — single draw call for all) ---
-const sparklePositions = new Float32Array(SPARKLE_COUNT * 3);
-const sparklePhases = new Float32Array(SPARKLE_COUNT); // per-sparkle twinkle offset
-
-for (let i = 0; i < SPARKLE_COUNT; i++) {
-  sparklePositions[i * 3 + 0] = (Math.random() - 0.5) * 100;
-  sparklePositions[i * 3 + 1] = (Math.random() - 0.5) * 100;
-  sparklePositions[i * 3 + 2] = -1.5 - Math.random() * 100;
-  sparklePhases[i] = Math.random() * Math.PI * 2;
-}
-
-const sparkleGeo = new THREE.BufferGeometry();
-sparkleGeo.setAttribute(
-  "position",
-  new THREE.BufferAttribute(sparklePositions, 3),
-);
-
-const sparkleMat = new THREE.PointsMaterial({
-  map: sparkleTex,
-  size: 10,
-  sizeAttenuation: true,
-  transparent: true,
-  opacity: 500, // driven each frame via the per-sparkle average
-  blending: THREE.AdditiveBlending,
-  depthWrite: false,
-});
-
-const sparklePoints = new THREE.Points(sparkleGeo, sparkleMat);
-scene.add(sparklePoints);
 
 // --- Update (called every frame from animate.js) ---
 export function updateBubbles(elapsed) {
@@ -147,24 +115,37 @@ export function updateBubbles(elapsed) {
     const { sprite } = b;
 
     // Float upward
-    sprite.position.y += b.speed * 0.005;
+    sprite.position.y += b.speed * 0.06;
 
-    // Gentle horizontal sway
+    // Two-harmonic horizontal sway for an organic, non-repeating path
     sprite.position.x =
-      b.originX + Math.sin(elapsed * b.driftFreq + b.phase) * b.driftAmp;
+      b.originX +
+      Math.sin(elapsed * b.driftFreq + b.phase) * b.driftAmp +
+      Math.sin(elapsed * b.driftFreq2 + b.phase2) * b.driftAmp2;
+
+    // Slow depth drift — bubbles gently move toward/away from camera
+    sprite.position.z =
+      b.originZ + Math.sin(elapsed * b.zFreq + b.zPhase) * b.zAmp;
 
     // Reset below screen when bubble reaches the top
     if (sprite.position.y > b.topY) {
       sprite.position.y = b.resetY;
-      sprite.position.x = (Math.random() - 0.5) * 16;
-      b.originX = sprite.position.x;
+      const nx = (Math.random() - 0.5) * 16;
+      sprite.position.x = nx;
+      b.originX = nx;
+      b.originZ = -0.3 - Math.random() * 5;
     }
   }
+}
 
-  // Twinkle sparkles: vary overall opacity with a slow composite wave
-  // (single-material limitation — average of multiple frequencies gives organic feel)
-  const t1 = Math.sin(elapsed * 0.7) * 0.5 + 0.5;
-  const t2 = Math.sin(elapsed * 1.3 + 1.2) * 0.5 + 0.5;
-  const t3 = Math.sin(elapsed * 2.1 + 2.4) * 0.5 + 0.5;
-  sparkleMat.opacity = 0.04 + ((t1 + t2 + t3) / 3) * 0.14;
+// --- Cleanup ---
+export function disposeBubbles() {
+  for (let i = 0; i < bubbles.length; i++) {
+    scene.remove(bubbles[i].sprite);
+  }
+  // Dispose all per-bubble materials; shared texture disposed once after
+  for (let i = 0; i < _bubbleMaterials.length; i++) {
+    _bubbleMaterials[i].dispose();
+  }
+  bubbleTex.dispose();
 }
