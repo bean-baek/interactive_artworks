@@ -17,7 +17,7 @@ renderer.toneMappingExposure = 1.2;
 // --- Scene ---
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020813);
-scene.fog = new THREE.FogExp2(0x020813, 0.08);
+scene.fog = new THREE.FogExp2(0xffffff, 0.08);
 
 // --- Camera ---
 export const camera = new THREE.PerspectiveCamera(
