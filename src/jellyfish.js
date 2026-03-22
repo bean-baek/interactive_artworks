@@ -43,15 +43,13 @@ loader.load(modelUrl, (gltf) => {
 
   jellyfish.add(innerGlowLight);
 
-  // Compute the bell bounding box once — reused for both bellGroup pivot and
-  // final jellyfish position offset.
-  const bellBox = new THREE.Box3();
-  bellMeshes.forEach((m) => bellBox.expandByObject(m));
-  const bellCenter = bellBox.getCenter(new THREE.Vector3());
-
   if (bellMeshes.length > 0) {
+    const bellBoxPre = new THREE.Box3();
+    bellMeshes.forEach((m) => bellBoxPre.expandByObject(m));
+    const bellWorldCenter = bellBoxPre.getCenter(new THREE.Vector3());
+
     const bellGroup = new THREE.Group();
-    bellGroup.position.copy(bellCenter);
+    bellGroup.position.copy(bellWorldCenter);
     bellMeshes[0].parent.add(bellGroup);
     bellMeshes.forEach((m) => bellGroup.attach(m));
     bellGroup.rotation.z = 0.6;
@@ -71,6 +69,10 @@ loader.load(modelUrl, (gltf) => {
   const normalizedScale = 3 / Math.max(size.x, size.y, size.z);
   jellyfishState.normalizedScale = normalizedScale;
   jellyfish.scale.setScalar(normalizedScale);
+
+  const bellBox = new THREE.Box3();
+  bellMeshes.forEach((m) => bellBox.expandByObject(m));
+  const bellCenter = bellBox.getCenter(new THREE.Vector3());
 
   jellyfish.position.set(
     -bellCenter.x * normalizedScale,
