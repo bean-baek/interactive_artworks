@@ -1,9 +1,15 @@
 import * as THREE from "three";
 import { renderer, scene, camera } from "./scene.js";
 import { jellyfishContainer, jellyfishState } from "./jellyfish.js";
-import { cursorTarget, interactionState } from "./interaction.js";
+import { cursorTarget, interactionState, hoverState } from "./interaction.js";
+import { bellMaterial, tentacleMaterial } from "./materials.js";
 import { updateBubbles } from "./bubbles.js";
 import { theaterState, fleeTarget, updateTheater } from "./theater.js"; // 파일 경로 확인 필수!
+import { updateObjects } from "./objects.js";
+import { updateSketchbook } from "./sketchbook.js";
+import { updateCamera } from "./camera.js";
+import { updateFireworks } from "./fireworks.js";
+import { updateAudio } from "./audio.js";
 
 // --- Spring constants ---
 // Body lean (jiggle): reacts to frame-to-frame position delta
@@ -36,6 +42,10 @@ const _localLag = new THREE.Vector3();
 let prevCursorX = 0;
 let lastTime = performance.now();
 let elapsed = 0;
+let hintOpacity = 0;
+let hintDismissed = false;
+
+const hintEl = document.getElementById("hint-text");
 
 export function animate() {
   requestAnimationFrame(animate);
@@ -51,6 +61,7 @@ export function animate() {
   if (jellyfish && jellyfishContainer) {
     updateTheater(delta);
 
+    if (jellyfishContainer.visible) {
     let activeTarget = cursorTarget;
     let currentSpeed = 1 - Math.pow(0.65, delta);
 
@@ -140,9 +151,39 @@ export function animate() {
       tentGroup.rotation.x = hairJiggle.rotX + Math.sin(elapsed * 3) * 0.1;
       tentGroup.rotation.z = hairJiggle.rotZ + tentSwing.rot;
     }
+    } // jellyfishContainer.visible
   }
 
   if (mixer) mixer.update(delta);
   updateBubbles(elapsed);
+  updateObjects(delta, elapsed);
+  updateSketchbook(delta, elapsed);
+  updateCamera(delta);
+  updateFireworks(delta);
+  updateAudio(delta);
+
+  // Hover emissive glow — only while jellyfish is visible
+  if (jellyfishContainer && jellyfishContainer.visible) {
+    const smooth = 1 - Math.pow(0.05, delta);
+    bellMaterial.emissiveIntensity +=
+      ((hoverState.isHovering ? 1.6 : 0.3) - bellMaterial.emissiveIntensity) * smooth;
+    tentacleMaterial.emissiveIntensity +=
+      ((hoverState.isHovering ? 1.8 : 0.4) - tentacleMaterial.emissiveIntensity) * smooth;
+  }
+
+  // Camera zoom toward jellyfish on click, reset on return
+  camera.position.z +=
+    (theaterState.cameraTargetZ - camera.position.z) * (1 - Math.pow(0.1, delta));
+
+  // Hint text: breathing when idle, dismissed permanently on first jellyfish click
+  if (hintEl) {
+    if (!hintDismissed && theaterState.fleeing) hintDismissed = true;
+    const hintTarget = hintDismissed || hoverState.isHovering
+      ? 0
+      : 0.575 + Math.sin(elapsed * 1.2) * 0.275;
+    hintOpacity += (hintTarget - hintOpacity) * (1 - Math.pow(0.08, delta));
+    hintEl.style.opacity = hintOpacity;
+  }
+
   renderer.render(scene, camera);
 }
