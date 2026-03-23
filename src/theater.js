@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { jellyfishContainer } from "./jellyfish.js";
+import { hoverState } from "./interaction.js";
 
 // World-space target the jellyfish flees toward (top-right, off-screen)
 export const fleeTarget = new THREE.Vector3(10, 8, 0);
@@ -10,6 +11,7 @@ export const theaterState = {
   done: false,
   returning: false,
   returnProgress: 0,
+  cameraTargetZ: 8,
 };
 
 // --- DOM ---
@@ -146,6 +148,7 @@ function returnToJellyfish() {
   theaterState.done = false;
   theaterState.returning = true;
   theaterState.returnProgress = 0;
+  theaterState.cameraTargetZ = 8;
 
   // Collect meshes and set opacity to 0 for fade-in
   _fleeMeshes = [];
@@ -167,9 +170,11 @@ backBtn.addEventListener("click", onBackBtnClick);
 
 // --- Flee on window click ---
 function onWindowClick() {
+  if (!hoverState.isHovering) return;
   if (theaterState.fleeing || theaterState.done || theaterState.returning) return;
   theaterState.fleeing = true;
   theaterState.fleeProgress = 0;
+  theaterState.cameraTargetZ = 4.5;
 
   _fleeMeshes = [];
   jellyfishContainer.traverse((child) => {
