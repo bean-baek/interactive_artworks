@@ -3,7 +3,10 @@
   --text-h: #08060d;
   --bg: #fff;
 
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --sans:
+    "pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol";
   --heading: var(--sans);
 
   font: 18px/145% var(--sans);
@@ -48,6 +51,25 @@ body {
 /* Reserved for future UI overlay; intentionally hidden until needed. */
 #app {
   display: none;
+}
+
+/* --- Hint text --- */
+#hint-text {
+  position: fixed;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  color: rgba(211, 100, 255, 0.9);
+  font-size: 1rem;
+  letter-spacing: 0.35em;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow:
+    0 0 16px rgba(211, 100, 255, 0.75),
+    0 0 40px rgba(123, 0, 212, 0.45);
+  opacity: 0;
 }
 
 /* --- Theater overlay --- */
