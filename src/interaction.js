@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { scene, camera, canvas } from "./scene.js";
 import { createCursorTexture } from "./materials.js";
-import { jellyfishState } from "./jellyfish.js";
+import { jellyfishContainer } from "./jellyfish.js";
 
 // --- Cursor tracking ---
 export const cursorTarget = new THREE.Vector3(0, 0, 0);
 export const interactionState = { scrollScale: 1 };
+export const hoverState = { isHovering: false };
 
 const raycaster = new THREE.Raycaster();
 const cursorPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
@@ -19,6 +20,14 @@ window.addEventListener("mousemove", (e) => {
   raycaster.setFromCamera(mouse2D, camera);
   raycaster.ray.intersectPlane(cursorPlane, cursorTarget);
   cursorGlowGroup.position.copy(cursorTarget);
+
+  // Jellyfish hover detection
+  const hits = raycaster.intersectObject(jellyfishContainer, true);
+  const wasHovering = hoverState.isHovering;
+  hoverState.isHovering = hits.length > 0 && jellyfishContainer.visible;
+  if (hoverState.isHovering !== wasHovering) {
+    document.body.style.cursor = hoverState.isHovering ? "pointer" : "default";
+  }
 });
 
 window.addEventListener(
