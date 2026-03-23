@@ -60,16 +60,15 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
-  color: rgba(211, 100, 255, 0.9);
-  font-size: 1rem;
-  letter-spacing: 0.35em;
+  color: white;
+  font-size: 0.5rem;
   text-align: center;
   pointer-events: none;
   white-space: nowrap;
   text-shadow:
     0 0 16px rgba(211, 100, 255, 0.75),
     0 0 40px rgba(123, 0, 212, 0.45);
-  opacity: 0;
+  opacity: 0.5;
 }
 
 /* --- Theater overlay --- */
