@@ -29,8 +29,13 @@ export const camera = new THREE.PerspectiveCamera(
 camera.position.z = 8;
 
 // --- Lights ---
-const ambientLight = new THREE.AmbientLight(0x0a1e3f, 20);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); // 뚜렷한 그림자와 굴곡을 만드는 주조명
+dirLight.position.set(2, 5, 4); // 우측 상단 앞쪽에서 비스듬히 쏘기
+dirLight.castShadow = true;
+scene.add(dirLight);
 
 const mainLight = new THREE.DirectionalLight(0xaaccff, 10);
 mainLight.position.set(5, 10, 5);
