@@ -15,11 +15,11 @@ import { theaterState } from "./theater.js";
 // ---------------------------------------------------------------------------
 // Thresholds (camera.md: strict minDistance / maxDistance)
 // ---------------------------------------------------------------------------
-const ZOOM_MIN   = 3.5;   // closest the user can scroll in
-const ZOOM_MAX   = 10.0;  // furthest the user can scroll out
-const ZOOM_FOCUSED   = 4.5;  // Z when focused on book
-const ZOOM_GLOBAL    = 8.0;  // Z in global overview mode
-const ZOOM_EXIT_THRESHOLD = 6.8; // scroll past this to leave focus mode
+const ZOOM_MIN = 3.5; // closest the user can scroll in
+const ZOOM_MAX = 10.0; // furthest the user can scroll out
+const ZOOM_FOCUSED = 7.0; // Z when focused on book
+const ZOOM_GLOBAL = 8.0; // Z in global overview mode
+const ZOOM_EXIT_THRESHOLD = 5.0; // scroll past this to leave focus mode
 
 // ---------------------------------------------------------------------------
 // State
@@ -34,7 +34,7 @@ let isTransitioning = false;
 const mouseNDC = new THREE.Vector2();
 
 window.addEventListener("mousemove", (e) => {
-  mouseNDC.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+  mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
@@ -42,20 +42,24 @@ window.addEventListener("mousemove", (e) => {
 // Scroll zoom (Phase 3 only)
 // camera.md: scroll maps to Z-axis; scroll-out exits focus
 // ---------------------------------------------------------------------------
-window.addEventListener("wheel", (e) => {
-  if (!cameraActive) return;
+window.addEventListener(
+  "wheel",
+  (e) => {
+    if (!cameraActive) return;
 
-  const dir = e.deltaY > 0 ? 1 : -1;
-  const newZ = theaterState.cameraTargetZ + dir * 0.25;
-  theaterState.cameraTargetZ = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZ));
+    const dir = e.deltaY > 0 ? 1 : -1;
+    const newZ = theaterState.cameraTargetZ + dir * 0.25;
+    theaterState.cameraTargetZ = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZ));
 
-  // Scroll out past threshold → exit focus mode
-  if (isCameraFocused && theaterState.cameraTargetZ > ZOOM_EXIT_THRESHOLD) {
-    isCameraFocused = false;
-    isTransitioning = true;
-    theaterState.cameraTargetZ = ZOOM_GLOBAL;
-  }
-}, { passive: true });
+    // Scroll out past threshold → exit focus mode
+    if (isCameraFocused && theaterState.cameraTargetZ > ZOOM_EXIT_THRESHOLD) {
+      isCameraFocused = false;
+      isTransitioning = true;
+      theaterState.cameraTargetZ = ZOOM_GLOBAL;
+    }
+  },
+  { passive: true },
+);
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -101,7 +105,9 @@ export function updateCamera(delta) {
 
   // ── Detect transition completion ───────────────────────────────────────
   if (isTransitioning) {
-    const distToTarget = Math.abs(camera.position.z - theaterState.cameraTargetZ);
+    const distToTarget = Math.abs(
+      camera.position.z - theaterState.cameraTargetZ,
+    );
     if (distToTarget < 0.05) isTransitioning = false;
   }
 }
