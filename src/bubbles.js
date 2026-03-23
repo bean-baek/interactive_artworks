@@ -66,6 +66,11 @@ const bubbles = [];
 // Collect materials for bulk disposal
 const _bubbleMaterials = [];
 
+// --- Fade-out state ---
+let _fading = false;
+let _fadeProgress = 0;
+let _lastElapsed = null;
+
 for (let i = 0; i < BUBBLE_COUNT; i++) {
   const mat = new THREE.SpriteMaterial({
     map: bubbleTex,
@@ -110,6 +115,25 @@ for (let i = 0; i < BUBBLE_COUNT; i++) {
 
 // --- Update (called every frame from animate.js) ---
 export function updateBubbles(elapsed) {
+  const delta = _lastElapsed !== null ? elapsed - _lastElapsed : 0.016;
+  _lastElapsed = elapsed;
+
+  // Fade out over 1.5s, then hide all sprites
+  if (_fading) {
+    _fadeProgress = Math.min(1, _fadeProgress + delta / 1.5);
+    const t = 1 - _fadeProgress * _fadeProgress; // ease-out
+    for (let i = 0; i < bubbles.length; i++) {
+      bubbles[i].sprite.material.opacity = (bubbles[i].baseOpacity ?? 0.08) * t;
+    }
+    if (_fadeProgress >= 1) {
+      _fading = false;
+      for (let i = 0; i < bubbles.length; i++) bubbles[i].sprite.visible = false;
+    }
+    // Keep drifting during fade so they float away naturally
+  }
+
+  if (_fadeProgress >= 1) return; // fully faded — skip all position updates
+
   for (let i = 0; i < bubbles.length; i++) {
     const b = bubbles[i];
     const { sprite } = b;
@@ -135,6 +159,14 @@ export function updateBubbles(elapsed) {
       b.originX = nx;
       b.originZ = -0.3 - Math.random() * 5;
     }
+  }
+}
+
+export function fadeBubbles() {
+  if (_fading || _fadeProgress >= 1) return;
+  _fading = true;
+  for (let i = 0; i < bubbles.length; i++) {
+    bubbles[i].baseOpacity = bubbles[i].sprite.material.opacity;
   }
 }
 
