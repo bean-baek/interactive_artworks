@@ -329,6 +329,7 @@ function buildPage(frontTex, backTex) {
       metalness: 0.0,
       transparent: true,
       opacity: 0,
+      depthWrite: false, // prevent z-fighting between stacked transparent pages
     }),
     new THREE.MeshStandardMaterial({
       map: backTex,
@@ -336,9 +337,11 @@ function buildPage(frontTex, backTex) {
       metalness: 0.0,
       transparent: true,
       opacity: 0,
+      depthWrite: false,
     }),
   ];
-
+  mats[5].map.repeat.x = -1;
+  mats[5].map.offset.x = 1;
   const bones = [];
   for (let i = 0; i < BONE_COUNT; i++) {
     const bone = new THREE.Bone();
@@ -391,20 +394,19 @@ export const bookGroup = new THREE.Group();
 // Shift left by half page-width so the book is centered (spine at world x=0)
 bookGroup.position.set(-PAGE_W / 2, 0.3, 3);
 bookGroup.rotation.x = -0.12;
-bookGroup.rotation.y = -0.15; // slight angle to show spine depth
+bookGroup.rotation.y = -0.05; // slight angle to show spine depth
 bookGroup.visible = false;
 scene.add(bookGroup);
 
 pageData.forEach(({ mesh }, i) => {
   // [수정 포인트 1-2] 지오메트리를 이미 이동시켰으므로 mesh 위치는 0(제본선 축)으로 둡니다.
   mesh.position.x = 0;
-  mesh.position.z = i * PAGE_D * -4;
+  mesh.position.z = (pageData.length - i) * PAGE_D * 1.5;
   bookGroup.add(mesh);
 });
 
 // ── Notebook structural pieces (spine + back board) ──────────────────────────
-const totalStackZ = (bookConfig.length - 1) * PAGE_D * -4;
-
+const maxZ = pageData.length * PAGE_D * 1.5;
 const spineMat = new THREE.MeshStandardMaterial({
   color: 0x5c3a1e,
   roughness: 0.85,
@@ -413,10 +415,11 @@ const spineMat = new THREE.MeshStandardMaterial({
   opacity: 0,
 });
 const spineMesh = new THREE.Mesh(
-  new THREE.BoxGeometry(0.045, PAGE_H * 1.01, totalStackZ + 0.025),
+  new THREE.BoxGeometry(0.04, PAGE_H, maxZ),
   spineMat,
 );
-spineMesh.position.set(0, 0, totalStackZ / 2);
+spineMesh.position.set(-0.02, 0, maxZ / 2);
+spineMesh.renderOrder = -1; // drawn behind pages but in front of back cover
 bookGroup.add(spineMesh);
 
 const backCoverMat = new THREE.MeshStandardMaterial({
@@ -427,28 +430,39 @@ const backCoverMat = new THREE.MeshStandardMaterial({
   opacity: 0,
 });
 const backCoverMesh = new THREE.Mesh(
-  new THREE.BoxGeometry(PAGE_W + 0.02, PAGE_H + 0.02, 0.006),
+  new THREE.BoxGeometry(PAGE_W, PAGE_H, 0.006),
   backCoverMat,
 );
-backCoverMesh.position.set(PAGE_W / 2, 0, totalStackZ + 0.005);
+
+backCoverMesh.position.set(PAGE_W / 2, 0, -0.003);
+backCoverMesh.renderOrder = -2; // always drawn before pages
 bookGroup.add(backCoverMesh);
 
 // Extra structural meshes that need to fade in with the pages
 const extraMeshes = [spineMesh, backCoverMesh];
+
+// Invisible click plane: covers full book width (right = unflipped, left = flipped).
+// Used instead of SkinnedMesh hit-testing because SkinnedMesh.raycast uses
+// undeformed geometry — flipped pages always report positive x and backward clicks fail.
+const _clickPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(PAGE_W * 2, PAGE_H),
+  new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }),
+);
+_clickPlane.position.set(0, 0, maxZ + 0.005); // just in front of page stack
+bookGroup.add(_clickPlane);
 
 // ---------------------------------------------------------------------------
 // Interactions
 // ---------------------------------------------------------------------------
 const raycaster = new THREE.Raycaster();
 const mouse2D = new THREE.Vector2();
-const pageMeshes = pageData.map(({ mesh }) => mesh);
 
 window.addEventListener("click", (e) => {
   if (!active) return;
   mouse2D.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouse2D.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse2D, camera);
-  const hits = raycaster.intersectObjects(pageMeshes, false);
+  const hits = raycaster.intersectObject(_clickPlane, false);
   if (hits.length === 0) return;
 
   // camera.md: "First Click → focus camera. Subsequent clicks → flip pages."
@@ -457,19 +471,20 @@ window.addEventListener("click", (e) => {
     return;
   }
 
-  // Camera is focused — navigate pages by click side
+  // Spine is at local x=0. Right of spine (x>0) = unflipped pages → forward.
+  // Left of spine (x<0) = flipped pages → backward.
   const localPt = bookGroup.worldToLocal(hits[0].point.clone());
   if (localPt.x > 0) {
     const nextStop = validStops.find((stop) => stop > currentPage);
     if (nextStop !== undefined) {
       currentPage = nextStop;
-      clickSpring.vel += 0.1;
+      clickSpring.vel += 0.15;
     }
   } else {
     const prevStops = validStops.filter((stop) => stop < currentPage);
     if (prevStops.length > 0) {
       currentPage = prevStops[prevStops.length - 1];
-      clickSpring.vel += 0.1;
+      clickSpring.vel += 0.15;
     }
   }
 });
@@ -479,12 +494,16 @@ export function activateSketchbook() {
   bookGroup.visible = true;
   fadeT = 0;
 }
-
 // ---------------------------------------------------------------------------
 // Animation Loop (updateSketchbook)
 // ---------------------------------------------------------------------------
 export function updateSketchbook(delta, elapsed) {
   if (!bookGroup.visible) return;
+
+  // 1. 포커스가 나가면 타겟을 표지(0)로 변경
+  if (!isCameraFocused && currentPage !== 0) {
+    currentPage = 0;
+  }
 
   // ── Fade-in (~2.5s) ───────────────────────────────────────────────────────
   if (fadeT < 1) {
@@ -500,7 +519,7 @@ export function updateSketchbook(delta, elapsed) {
     });
   }
 
-  // ── [수정 포인트 3] Delayed Page & Airborne Trigger ───────────────────────
+  // ── Delayed Page & Airborne Trigger ───────────────────────
   if (delayTimer > 0) {
     delayTimer -= delta;
   } else if (displayedPage !== currentPage) {
@@ -517,7 +536,13 @@ export function updateSketchbook(delta, elapsed) {
     displayedPage += step;
 
     const dist = Math.abs(currentPage - displayedPage);
-    if (dist > 0) delayTimer = dist >= 2 ? 0.003 : 0.15;
+    if (dist > 0) {
+      if (!isCameraFocused) {
+        delayTimer = 0.02; // 포커스 아웃 시 초고속 덮기
+      } else {
+        delayTimer = dist >= 2 ? 0.04 : 0.15; // 일반 넘김 속도
+      }
+    }
   }
 
   // ── Click bounce spring — forward nudge on page turn ─────────────────────
@@ -526,7 +551,7 @@ export function updateSketchbook(delta, elapsed) {
   bookGroup.position.z = 3 + clickSpring.z;
 
   // ── 부유 효과 ────────────────────────────────────────────────────────────
-  bookGroup.position.y = 0.3 + Math.sin(elapsed * 0.8) * 0.04;
+  bookGroup.position.y = 0.3 + Math.sin(elapsed * 0.8) * 0.015;
   bookGroup.rotation.z = Math.sin(elapsed * 0.5) * 0.01;
 
   // ── Per-page Bone Animation ─────────────────────────────────────────────
@@ -535,45 +560,63 @@ export function updateSketchbook(delta, elapsed) {
     let progress = 0;
     let isTurning = false;
 
-    // [수정 포인트 4] 타임스탬프 기반 진행도 계산
+    // 오른쪽 뭉치는 0번(커버)이 맨 위, 왼쪽 뭉치는 방금 넘어온 게 맨 위여야 함
+    const stackZ = isFlipped
+      ? p * PAGE_D * 1.5
+      : (pageData.length - p) * PAGE_D * 1.5;
+
+    let liftZ = 0;
     if (airborne[p]) {
-      const t = elapsed - airborne[p].startTime;
-      if (t >= airborne[p].duration) {
-        airborne[p] = null;
+      progress = (elapsed - airborne[p].startTime) / airborne[p].duration;
+      if (progress >= 1) {
+        airborne[p] = null; // clear so isTurning doesn't stay true forever
+        progress = 1;
       } else {
-        progress = t / airborne[p].duration; // 0.0 ~ 1.0 사이 값
         isTurning = true;
+        liftZ = Math.sin(progress * Math.PI) * 0.012; // small lift — keeps pivot within spine depth
       }
     }
 
-    // [수정된 Per-page Bone Animation 로직]
+    // Snap to target when nearly there to prevent oscillation / z-fighting
+    const targetZ = stackZ + liftZ;
+    const zDiff = targetZ - mesh.position.z;
+    mesh.position.z = Math.abs(zDiff) < 0.0005 ? targetZ : mesh.position.z + zDiff * 0.18;
+
+    // renderOrder: turning page always on top; unflipped = front cover highest; flipped = most recent on top
+    if (airborne[p]) {
+      mesh.renderOrder = 50;
+    } else if (isFlipped) {
+      mesh.renderOrder = p + 1;
+    } else {
+      mesh.renderOrder = pageData.length + (pageData.length - p);
+    }
+
+    // [최종 최적화된 Bone Animation 로직]
     for (let i = 0; i < BONE_COUNT; i++) {
       if (i === 0) {
-        // 루트 본(제본선 축)을 180도 넘김
-        const targetRootY = isFlipped ? Math.PI : 0;
+        const targetRootY = isFlipped ? -Math.PI : 0;
         bones[0].rotation.y = dampAngle(
           bones[0].rotation.y,
           targetRootY,
-          0.003, // faster root turn (~0.6s to settle)
+          0.005,
           delta,
         );
       } else {
-        // 하위 뼈대들의 곡률 계산
         const insideCurve = i < 8 ? Math.sin(i * 0.2 + 0.25) * 0.18 : 0;
         const outsideCurve =
           i >= 8 ? (Math.sin(i * 0.3) + 0.09) * OUTSIDE_CURVE_STRENGTH : 0;
 
-        // 완전히 넘겨졌을 때 곡률 유지 여부 (평평하게 하려면 0, 구부린 채 두려면 isFlipped 조건 추가)
         let targetBoneY = isFlipped ? (insideCurve + outsideCurve) * 0.5 : 0;
         let targetBoneX = 0;
 
-        // 공중에 떠서 넘어갈 때의 다이나믹한 효과
         if (isTurning) {
-          const expansion = Math.sin(progress * Math.PI) * 0.08; // visible page-lift arc
-          targetBoneY += airborne[p].dir * expansion;
+          const liftArc = Math.sin(progress * Math.PI);
+
+          const dynamicCurve = airborne[p].dir * liftArc * 0.015;
+          targetBoneY -= dynamicCurve;
 
           // 비틀림(펄럭임) 효과
-          const foldIntensity = Math.sin(progress * Math.PI) * 0.1;
+          const foldIntensity = Math.sin(progress * Math.PI) * 0.005;
           targetBoneX =
             Math.sign(isFlipped ? 1 : -1) * foldIntensity * Math.sin(i * 0.3);
         }
