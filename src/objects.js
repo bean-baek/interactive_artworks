@@ -19,7 +19,7 @@ let atmosphereT = 0;
 // ---------------------------------------------------------------------------
 // Progress tracking
 // ---------------------------------------------------------------------------
-const REQUIRED_COUNT = 6; // 3 tine groups + 3 leaves
+const REQUIRED_COUNT = 3; // 3 tine groups
 const clicked = new Set();
 
 // Per-mesh hover state (0 → 1)
@@ -126,34 +126,164 @@ loader.load(
 );
 
 // ---------------------------------------------------------------------------
-// Build leaves
+// Build leaves — instanced particle system with CPU physics
 // ---------------------------------------------------------------------------
-const LEAF_DEFS = [
-  { w: 0.45, h: 0.7, x: -2.8, y: -1.6, z: 0.8, ry: 0.3, rz: 0.4 },
-  { w: 0.55, h: 0.85, x: 2.6, y: -1.2, z: 0.5, ry: -0.5, rz: -0.3 },
-  { w: 0.35, h: 0.55, x: -2.0, y: -2.2, z: 1.2, ry: 0.7, rz: 0.6 },
-];
+const LEAF_COUNT = 4096; // instances (2^12 — CPU-friendly on WebGL)
+const LEAF_SIZE = 14; // half-extent of spawn / wrap bounds (world units)
+const LEAF_GRAVITY = 0.0025; // downward acceleration per frame
+const LEAF_PUSH_R = 2.5; // cursor repulsion radius (world units)
 
-LEAF_DEFS.forEach((def, i) => {
-  const mat = new THREE.MeshPhysicalMaterial({
-    color: 0x2a7a3b,
-    metalness: 0.05,
-    roughness: 0.7,
-    transparent: true,
-    opacity: 0,
-    side: THREE.DoubleSide,
-  });
+// Physics state — flat Float32 arrays for cache efficiency
+const _leafPos = new Float32Array(LEAF_COUNT * 3); // x,y,z per leaf
+const _leafVel = new Float32Array(LEAF_COUNT * 3); // vx,vy,vz per leaf
+const _leafScl = new Float32Array(LEAF_COUNT); // uniform scale per leaf
 
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.w, def.h), mat);
-  mesh.position.set(def.x, def.y, def.z);
-  mesh.rotation.y = def.ry;
-  mesh.rotation.z = def.rz;
-  mesh.userData.id = `leaf-${i}`;
-  hoverT.set(mesh, 0);
-  scene.add(mesh);
-  interactiveMeshes.push(mesh);
-  fadeMeshes.push(mesh);
+// Autumn colour palette: green-yellow (#c4c557) → orange (#f7782b)
+const _cA = new THREE.Color(0xc4c557);
+const _cB = new THREE.Color(0xf7782b);
+const _cTmp = new THREE.Color();
+
+/** PlaneGeometry skewed into a kite-like shape, rotated flat in the XZ plane. */
+function _buildLeafGeo() {
+  const g = new THREE.PlaneGeometry(1, 1);
+  const p = g.attributes.position.array;
+  // Skew: widen top edge (x += 0.15), narrow bottom edge (x -= 0.15)
+  p[0] += 0.15;
+  p[3] += 0.15; // top-left & top-right x
+  p[6] -= 0.15;
+  p[9] -= 0.15; // bottom-left & bottom-right x
+  g.attributes.position.needsUpdate = true;
+  g.computeVertexNormals();
+  g.rotateX(-Math.PI * 0.5); // lay flat in XZ plane
+  return g;
+}
+
+const _leafGeo = _buildLeafGeo();
+const _leafMat = new THREE.MeshLambertMaterial({
+  color: 0xffffff, // white base — instance colours multiply on top
+  map: new THREE.TextureLoader().load("src/assets/texture/leaf.png"),
+  transparent: true,
+  opacity: 0,
+  side: THREE.DoubleSide,
+  depthWrite: false,
 });
+
+const leafMesh = new THREE.InstancedMesh(_leafGeo, _leafMat, LEAF_COUNT);
+leafMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+const _leafDummy = new THREE.Object3D();
+let _leavesReady = false;
+
+// Ground plane for projecting the cursor ray to world space
+const _leafGroundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _cursorOnGround = new THREE.Vector3();
+
+function _initLeafParticles() {
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    const b = i * 3;
+    _leafPos[b] = (Math.random() * 2 - 1) * LEAF_SIZE;
+    _leafPos[b + 1] = -0.5 + Math.random() * 0.2; // slight initial drop height
+    _leafPos[b + 2] = (Math.random() * 2 - 1) * LEAF_SIZE;
+    _leafVel[b] = _leafVel[b + 1] = _leafVel[b + 2] = 0;
+    _leafScl[i] = Math.random() * 0.8 + 0.2; // 20%–100% of base size
+
+    _cTmp.lerpColors(_cA, _cB, Math.random());
+    leafMesh.setColorAt(i, _cTmp);
+
+    _leafDummy.position.set(_leafPos[b], _leafPos[b + 1], _leafPos[b + 2]);
+    _leafDummy.rotation.set(1, Math.random() * Math.PI * 2, 0);
+    _leafDummy.scale.setScalar(_leafScl[i]);
+    _leafDummy.updateMatrix();
+    leafMesh.setMatrixAt(i, _leafDummy.matrix);
+  }
+  if (leafMesh.instanceColor) leafMesh.instanceColor.needsUpdate = true;
+  leafMesh.instanceMatrix.needsUpdate = true;
+  scene.add(leafMesh);
+  fadeMeshes.push(leafMesh);
+  _leavesReady = true;
+}
+
+function _updateLeafParticles(delta, elapsed) {
+  if (!_leavesReady) return;
+
+  // Project last-known cursor ray onto y=0 ground plane
+  raycaster.ray.intersectPlane(_leafGroundPlane, _cursorOnGround);
+
+  const hs = LEAF_SIZE;
+
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    const b = i * 3;
+    let px = _leafPos[b],
+      py = _leafPos[b + 1],
+      pz = _leafPos[b + 2];
+    let vx = _leafVel[b],
+      vy = _leafVel[b + 1],
+      vz = _leafVel[b + 2];
+
+    // Cursor repulsion (XZ plane)
+    const cdx = px - _cursorOnGround.x;
+    const cdz = pz - _cursorOnGround.z;
+    const cd2 = cdx * cdx + cdz * cdz;
+    if (cd2 < LEAF_PUSH_R * LEAF_PUSH_R && cd2 > 0.0001) {
+      const cd = Math.sqrt(cd2);
+      const str = (1 - cd / LEAF_PUSH_R) * 0.04;
+      vx += (cdx / cd) * str;
+      vz += (cdz / cd) * str;
+    }
+
+    // Wind — layered sin/cos noise
+    vx +=
+      Math.sin(px * 0.28 + elapsed * 0.71) *
+      Math.cos(pz * 0.19 + elapsed * 0.53) *
+      0.0001;
+
+    // Horizontal speed for lift calculation
+    const spd = Math.sqrt(vx * vx + vz * vz);
+
+    // Damping — high ground friction, low air resistance
+    const damp = py < 0.01 ? 0.8 : 0.985;
+    vx *= damp;
+    vz *= damp;
+
+    // Lift (fast-moving leaves rise) + gravity
+    vy += spd * 0.015 - LEAF_GRAVITY;
+
+    // Integrate position
+    px += vx;
+    py += vy;
+    pz += vz;
+
+    // Floor collision
+    if (py < 0) {
+      py = 0;
+      vy = 0;
+    }
+
+    // Infinite-world wrapping
+    if (px > hs) px -= hs * 2;
+    if (px < -hs) px += hs * 2;
+    if (pz > hs) pz -= hs * 2;
+    if (pz < -hs) pz += hs * 2;
+
+    _leafPos[b] = px;
+    _leafPos[b + 1] = py;
+    _leafPos[b + 2] = pz;
+    _leafVel[b] = vx;
+    _leafVel[b + 1] = vy;
+    _leafVel[b + 2] = vz;
+
+    // Instance matrix — spin only when airborne
+    const airF = Math.min(py, 1);
+    const baseRotation = i * 1.618;
+    const spin = Math.sin(px * 0.8 + pz * 0.6 + elapsed * 0.4) * (Math.PI / 2);
+    _leafDummy.position.set(px, py, pz);
+    _leafDummy.rotation.set(0, baseRotation + spin * airF, 0);
+    _leafDummy.scale.setScalar(_leafScl[i]);
+    _leafDummy.updateMatrix();
+    leafMesh.setMatrixAt(i, _leafDummy.matrix);
+  }
+  leafMesh.instanceMatrix.needsUpdate = true;
+}
 
 // ---------------------------------------------------------------------------
 // Interaction
@@ -208,6 +338,9 @@ function activateObjects() {
     }
   });
   jellyFadeProgress = 0;
+
+  // Spawn the leaf particle system
+  _initLeafParticles();
 }
 
 // Video-ended trigger
@@ -263,7 +396,7 @@ export function updateObjects(delta, elapsed) {
   }
 
   if (!objectsActive) return;
-
+  _updateLeafParticles(delta, elapsed);
   // Lerp scene atmosphere toward warm parchment (~3s)
   if (atmosphereT < 1) {
     atmosphereT = Math.min(1, atmosphereT + delta * 0.33);
