@@ -5,7 +5,7 @@ import { theaterState } from "./theater.js";
 import { jellyfishContainer } from "./jellyfish.js";
 import { triggerFireworks } from "./fireworks.js";
 import { fadeBubbles } from "./bubbles.js";
-import { playObjectSound, stopObjectSound, fadeInLaughter } from "./audio.js";
+import { playObjectSound, fadeInLaughter } from "./audio.js";
 import { activateSketchbook } from "./sketchbook.js";
 import { activateCameraController } from "./camera.js";
 
@@ -289,21 +289,19 @@ function _updateLeafParticles(delta, elapsed) {
 // Interaction
 // ---------------------------------------------------------------------------
 function onObjectClicked(mesh) {
-  if (clicked.has(mesh.userData.id)) {
-    stopObjectSound(mesh);
-    return;
-  }
-  clicked.add(mesh.userData.id);
-
-  // Permanent purple glow to mark as collected
-  mesh.material.emissive = new THREE.Color(0x9b30ff);
-  mesh.material.emissiveIntensity = 0.5;
-
+  // Always play the note on every click
   playObjectSound(mesh);
 
-  if (clicked.size === REQUIRED_COUNT) {
-    triggerFireworks();
-    fadeInLaughter();
+  // First click: mark as collected, apply permanent glow
+  if (!clicked.has(mesh.userData.id)) {
+    clicked.add(mesh.userData.id);
+    mesh.material.emissive = new THREE.Color(0x9b30ff);
+    mesh.material.emissiveIntensity = 0.5;
+
+    if (clicked.size === REQUIRED_COUNT) {
+      triggerFireworks();
+      fadeInLaughter();
+    }
   }
 }
 

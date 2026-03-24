@@ -57,6 +57,15 @@ export function initAudio() {
 const activeSounds = new Map();
 
 export function playObjectSound(mesh) {
+  // Stop any currently playing sound so re-clicks retrigger cleanly
+  const existing = activeSounds.get(mesh);
+  if (existing) {
+    if (existing.isPlaying) existing.stop();
+    mesh.remove(existing);
+    existing.disconnect();
+    activeSounds.delete(mesh);
+  }
+
   const id = mesh.userData.id;
   const bufKey = id.startsWith("leaf") ? "leaf" : id;
   const buf = buffers[bufKey];
