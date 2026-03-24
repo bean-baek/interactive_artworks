@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm uninstall:*)",
+      "Bash(cat /c/Users/suhyu/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/github/*.json)",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/suhyu/.claude/plugins/ -name simplify*)",
+      "Bash(xargs -I{} sh -c \"echo \"\"=== {} ===\"\" && cat {}\")",
+      "Bash(rm /c/Users/suhyu/.claude/skills/clean-code/SKILL.md)",
+      "Bash(rmdir /c/Users/suhyu/.claude/skills/clean-code/)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --index-filter 'git rm --cached --ignore-unmatch src/assets/edit_13.mp4 src/assets/last.mp4' -- 14ac35b..HEAD)",
+      "Bash(npm run:*)",
+      "Skill(update-config)",
+      "Bash(gh issue:*)"
+    ]
+  }
+}
