@@ -94,7 +94,11 @@ export function unfocusCamera() {
 // Per-frame update — called from animate.js
 // ---------------------------------------------------------------------------
 export function updateCamera(delta) {
-  if (!cameraActive) return;
+  if (!cameraActive) {
+    // Phase 1 / 2: simple Z lerp toward theater target
+    camera.position.z += (theaterState.cameraTargetZ - camera.position.z) * (1 - Math.pow(0.1, delta));
+    return;
+  }
 
   // ── 1. Parallax: 탑다운 뷰에 맞게 마우스 축 변경 ───────────────────
   // 이제 마우스를 위아래(Y)로 움직이면 카메라의 높이(Y)가 아니라 앞뒤(Z)가 움직여야 자연스럽습니다.

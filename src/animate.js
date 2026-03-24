@@ -1,45 +1,14 @@
-import * as THREE from "three";
 import { renderer, scene, camera } from "./scene.js";
-import { jellyfishContainer, jellyfishState } from "./jellyfish.js";
+import { jellyfishContainer, jellyfishState, updateJellyfish } from "./jellyfish.js";
 import { cursorTarget, interactionState, hoverState } from "./interaction.js";
-import { bellMaterial, tentacleMaterial } from "./materials.js";
 import { updateBubbles } from "./bubbles.js";
-import { theaterState, fleeTarget, updateTheater } from "./theater.js"; // 파일 경로 확인 필수!
+import { theaterState, fleeTarget, updateTheater } from "./theater.js";
 import { updateObjects } from "./objects.js";
 import { updateSketchbook } from "./sketchbook.js";
 import { updateCamera } from "./camera.js";
 import { updateFireworks } from "./fireworks.js";
 import { updateAudio } from "./audio.js";
 
-// --- Spring constants ---
-// Body lean (jiggle): reacts to frame-to-frame position delta
-const STIFFNESS = 100;
-const DAMPING = 8;
-
-// Secondary hair wobble: follows body jiggle with its own lag
-const HAIR_STIFFNESS = 200;
-const HAIR_DAMPING = 6;
-
-// Tentacle swing: reacts to raw cursor X velocity — slow settle, high amplitude
-const TENT_SWING_STIFFNESS = 60;
-const TENT_SWING_DAMPING = 5;
-
-// --- Spring state ---
-const jiggle = { rotX: 0, rotZ: 0, velX: 0, velZ: 0 };
-const squishSpring = { val: 0, vel: 0 };
-const hairJiggle = { rotX: 0, rotZ: 0, velX: 0, velZ: 0 };
-const tentSwing = { rot: 0, vel: 0 };
-
-// --- Position state ---
-const jellyPos = new THREE.Vector3(0, 0, 0);
-const tentPos = new THREE.Vector3(0, 0, 0);
-
-// Reusable scratch vectors — allocated once, reused every frame to avoid GC pressure
-const _prevJellyPos = new THREE.Vector3(0, 0, 0);
-const _frameVel = new THREE.Vector3();
-const _localLag = new THREE.Vector3();
-
-let prevCursorX = 0;
 let lastTime = performance.now();
 let elapsed = 0;
 let hintOpacity = 0;
@@ -55,125 +24,17 @@ export function animate() {
   lastTime = now;
   elapsed += delta;
 
-  const { jellyfish, bellGroup, tentGroup, normalizedScale, mixer } =
-    jellyfishState;
-
-  if (jellyfish && jellyfishContainer) {
+  if (jellyfishState.jellyfish && jellyfishContainer) {
     updateTheater(delta);
-
-    if (jellyfishContainer.visible) {
-    let activeTarget = cursorTarget;
-    let currentSpeed = 1 - Math.pow(0.65, delta);
-
-    if (theaterState.fleeing) {
-      activeTarget = fleeTarget;
-      currentSpeed = 1 - Math.pow(0.6, delta); // lower base = faster flee
-    }
-
-    _prevJellyPos.copy(jellyPos);
-    jellyPos.lerp(activeTarget, currentSpeed); // 커서 대신 activeTarget으로 이동
-    _frameVel.subVectors(jellyPos, _prevJellyPos);
-
-    jellyfishContainer.position.copy(jellyPos);
-    jellyfishContainer.position.y += Math.sin(elapsed * 0.8) * 0.15; // gentle slow bob
-
-    // 2. Tentacle lag — tentacles follow even slower
-    const tentLag = 1 - Math.pow(0.04, delta);
-    tentPos.lerp(jellyPos, tentLag);
-    if (tentGroup) {
-      _localLag
-        .subVectors(tentPos, jellyPos)
-        .divideScalar(normalizedScale || 1);
-      tentGroup.position.x = _localLag.x * 0.2;
-      tentGroup.position.y = _localLag.y * 0.2;
-    }
-
-    // 3. Lean: spring toward movement direction
-    const targetRotZ = -_frameVel.x * 10; // move right → lean right
-    const targetRotX = _frameVel.y * 15; // move up → lean forward
-    const fx = (targetRotZ - jiggle.rotZ) * STIFFNESS - jiggle.velZ * DAMPING;
-    const fy = (targetRotX - jiggle.rotX) * STIFFNESS - jiggle.velX * DAMPING;
-    // Symplectic (semi-implicit) Euler: velocity is updated before position
-    // at half-step weight to keep the spring stable without sub-stepping.
-    jiggle.velZ += fx * delta * 0.5;
-    jiggle.velX += fy * delta * 0.5;
-    jiggle.rotZ += jiggle.velZ * delta * 0.5;
-    jiggle.rotX += jiggle.velX * delta * 0.5;
-
-    jellyfishContainer.rotation.x = jiggle.rotX;
-    jellyfishContainer.rotation.z = jiggle.rotZ;
-
-    // 4. Bulge + squish on movement
-    const bulge = Math.sin(elapsed * 1.2);
-    const speed = _frameVel.length();
-    const squishTarget = Math.min(0.7, speed * 14);
-    squishSpring.vel +=
-      ((squishTarget - squishSpring.val) * 80 - squishSpring.vel * 10) * delta;
-    squishSpring.val = Math.max(0, squishSpring.val + squishSpring.vel * delta);
-    const squish = squishSpring.val;
-    const baseScale = normalizedScale * interactionState.scrollScale;
-    jellyfish.scale.set(
-      baseScale * (1 + bulge * 0.1 + squish * -0.45),
-      baseScale * (1 - bulge * 0.15 - squish * -0.38),
-      baseScale * (1 + bulge * 0.1 + squish * -0.45),
-    );
-    jellyfish.rotation.set(0, elapsed * 0.5, 0);
-    if (bellGroup) bellGroup.scale.x = 1 - bulge * 0.1;
-
-    // Cursor X velocity (raw, per-frame)
-    const cursorVelX = cursorTarget.x - prevCursorX;
-    prevCursorX = cursorTarget.x;
-
-    if (tentGroup) {
-      tentGroup.scale.y = 1 + bulge * 0.3;
-
-      // Hair jiggle: secondary wobble from body spring
-      const hfx =
-        (jiggle.rotX - hairJiggle.rotX) * HAIR_STIFFNESS -
-        hairJiggle.velX * HAIR_DAMPING;
-      const hfz =
-        (jiggle.rotZ - hairJiggle.rotZ) * HAIR_STIFFNESS -
-        hairJiggle.velZ * HAIR_DAMPING;
-      hairJiggle.velX += hfx * delta;
-      hairJiggle.velZ += hfz * delta;
-      hairJiggle.rotX += hairJiggle.velX * delta;
-      hairJiggle.rotZ += hairJiggle.velZ * delta;
-
-      // Cursor-X swing spring: tent/hair rotate on Z following horizontal movement
-      const swingTarget = -cursorVelX * 60;
-      const swingForce =
-        (swingTarget - tentSwing.rot) * TENT_SWING_STIFFNESS -
-        tentSwing.vel * TENT_SWING_DAMPING;
-      tentSwing.vel += swingForce * delta;
-      tentSwing.rot += tentSwing.vel * delta;
-
-      tentGroup.rotation.y = Math.sin(elapsed * 1.5) * 0.2;
-      tentGroup.rotation.x = hairJiggle.rotX + Math.sin(elapsed * 3) * 0.1;
-      tentGroup.rotation.z = hairJiggle.rotZ + tentSwing.rot;
-    }
-    } // jellyfishContainer.visible
+    updateJellyfish(delta, elapsed, cursorTarget, interactionState, hoverState, theaterState, fleeTarget);
   }
 
-  if (mixer) mixer.update(delta);
   updateBubbles(elapsed);
   updateObjects(delta, elapsed);
   updateSketchbook(delta, elapsed);
   updateCamera(delta);
   updateFireworks(delta);
   updateAudio(delta);
-
-  // Hover emissive glow — only while jellyfish is visible
-  if (jellyfishContainer && jellyfishContainer.visible) {
-    const smooth = 1 - Math.pow(0.05, delta);
-    bellMaterial.emissiveIntensity +=
-      ((hoverState.isHovering ? 1.6 : 0.3) - bellMaterial.emissiveIntensity) * smooth;
-    tentacleMaterial.emissiveIntensity +=
-      ((hoverState.isHovering ? 1.8 : 0.4) - tentacleMaterial.emissiveIntensity) * smooth;
-  }
-
-  // Camera zoom toward jellyfish on click, reset on return
-  camera.position.z +=
-    (theaterState.cameraTargetZ - camera.position.z) * (1 - Math.pow(0.1, delta));
 
   // Hint text: breathing when idle, dismissed permanently on first jellyfish click
   if (hintEl) {

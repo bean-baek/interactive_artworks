@@ -168,6 +168,13 @@ function onBackBtnClick(e) {
 
 backBtn.addEventListener("click", onBackBtnClick);
 
+// Video ended → same flow as back button
+function onVideoEnded() {
+  if (theaterState.returning || (!theaterState.done && !theaterState.fleeing)) return;
+  returnToJellyfish();
+}
+video.addEventListener("ended", onVideoEnded);
+
 // --- Flee on window click ---
 function onWindowClick() {
   if (!hoverState.isHovering) return;
@@ -266,6 +273,7 @@ export function disposeTheater() {
   scrubber.removeEventListener("change", onScrubberChange);
   scrubber.removeEventListener("mouseup", onScrubberMouseUp);
   videoContainer.removeEventListener("mousemove", onVideoContainerMouseMove);
+  video.removeEventListener("ended", onVideoEnded);
   clearTimeout(hideTimer);
   _fleeMeshes = null;
 }

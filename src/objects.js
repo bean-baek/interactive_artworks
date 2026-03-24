@@ -343,24 +343,6 @@ function activateObjects() {
   _initLeafParticles();
 }
 
-// Video-ended trigger
-const _video = document.querySelector("#video-container video");
-const _videoContainer = document.getElementById("video-container");
-
-if (_video) {
-  _video.addEventListener("ended", () => {
-    if (theaterState.returning || (!theaterState.done && !theaterState.fleeing))
-      return;
-    _video.pause();
-    _videoContainer.classList.remove("theater-active");
-    jellyfishContainer.visible = true;
-    theaterState.fleeing = false;
-    theaterState.done = false;
-    theaterState.returning = true;
-    theaterState.returnProgress = 0;
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Per-frame update (called from animate.js)
 // ---------------------------------------------------------------------------
