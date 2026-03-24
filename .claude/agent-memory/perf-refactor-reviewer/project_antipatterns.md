@@ -18,6 +18,6 @@ type: project
 
 7. **sparkleMat.opacity initialized to 500** — PointsMaterial opacity was set to 500 (a comment said "driven each frame" but the wrong literal was used). Fixed to 0.04 (the floor value that updateBubbles writes).
 
-8. **reflectivity on MeshPhysicalMaterial** — bellMaterial (200) and tentacleMaterial (900) used `reflectivity` which is not a valid MeshPhysicalMaterial property and is silently ignored. Removed.
+8. **reflectivity on MeshPhysicalMaterial** — bellMaterial (200) and tentacleMaterial (900) use `reflectivity` which is not a valid MeshPhysicalMaterial property and is silently ignored. Still present in `src/materials.js` lines 61 and 73 — not yet removed.
 
 9. **Textures created but never disposed** — bellTex, tentacleTex, cursorTex, bubbleTex, sparkleTex all lacked .dispose() calls. Fixed via disposeMaterials() and disposeBubbles().

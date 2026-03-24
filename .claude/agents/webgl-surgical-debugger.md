@@ -14,7 +14,7 @@ You are working in a vanilla JavaScript + Three.js interactive artwork project b
 - Three.js version: `three@^0.162`
 - 3D assets in `src/models/` (GLTF/GLB jellyfish models)
 - Full-screen canvas `<canvas id="bg">` is the render target
-- Cursor-tracking physics (spring/damping: STIFFNESS=120, DAMPING=8), scroll-to-scale, procedural textures
+- Cursor-tracking physics (spring/damping: STIFFNESS=100, DAMPING=8), scroll-to-scale, procedural textures
 - Jellyfish model: `src/models/jelfish_alembic.gltf` with mesh groups `bellGroup` and `tentGroup`
 - No lint or test scripts configured; dev server at `http://localhost:5173`
 

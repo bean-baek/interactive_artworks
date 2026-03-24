@@ -29,7 +29,7 @@ Three.js is a runtime dependency (`three@^0.162`); Vite is the only dev dependen
 | File | Responsibility |
 |------|---------------|
 | `scene.js` | Renderer, camera, lights, resize handler |
-| `materials.js` | `bellMaterial`, `tentacleMaterial`, `leafMaterial`, `createCursorTexture()` |
+| `materials.js` | `bellMaterial`, `tentacleMaterial`, `createCursorTexture()` |
 | `jellyfish.js` | GLTF load, `bellGroup`/`tentGroup`, `jellyfishState` |
 | `interaction.js` | mousemove/wheel listeners, `cursorTarget`, `cursorGlowGroup` |
 | `bubbles.js` | Sprite bubbles + Points sparkles; `updateBubbles()`, `fadeBubbles()`, `disposeBubbles()` |

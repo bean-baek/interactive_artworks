@@ -52,7 +52,7 @@ Before writing any code, mentally (or explicitly) scan for:
 - Avoid `getBoundingClientRect()` or any layout-triggering read inside `animate()`.
 
 #### Preserve Functionality
-- The spring/damping cursor physics (`STIFFNESS=120, DAMPING=8`), scroll-to-scale (clamped 0.2–4), bell/tentacle group behavior, procedural textures, and all GLTF model logic must remain functionally identical.
+- The spring/damping cursor physics (`STIFFNESS=100, DAMPING=8`), scroll-to-scale (clamped 0.2–4), bell/tentacle group behavior, procedural textures, and all GLTF model logic must remain functionally identical.
 - Do not change public-facing variable names or module exports without explicit user approval.
 - Preserve all visual output: lighting, materials, gradients, corrective rotations.
 

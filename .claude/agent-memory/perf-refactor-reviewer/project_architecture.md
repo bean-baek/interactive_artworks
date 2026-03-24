@@ -7,7 +7,7 @@ type: project
 The project is split into ES modules loaded by `src/main.js`:
 
 - `scene.js` — renderer, camera, lights, resize handler
-- `materials.js` — procedural CanvasTexture creation + MeshPhysicalMaterial instances; also exports `leafMaterial`
+- `materials.js` — procedural CanvasTexture creation + MeshPhysicalMaterial instances (`bellMaterial`, `tentacleMaterial`)
 - `jellyfish.js` — GLTF load, bellGroup/tentGroup construction, jellyfishState export
 - `interaction.js` — mousemove / wheel listeners, cursorTarget, cursorGlowGroup
 - `bubbles.js` — Sprite bubbles + Points sparkles, updateBubbles(), fadeBubbles(), disposeBubbles()
