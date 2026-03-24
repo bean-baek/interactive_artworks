@@ -26,7 +26,7 @@ As an AI coding assistant, you MUST adhere to the following rules when generatin
 
 - **Phase 1 (Intro):** Dark ocean/space. 3D jellyfish follows the cursor. Text "빛을 따라가 보세요" pulses. Hovering increases the jellyfish's emissive intensity. Clicking starts Phase 2.
 - **Phase 2 (Theater):** A 3D plane plays the video, framed by mystical particles and soft `UnrealBloomPass`.
-- **Phase 3 (Sound Exploration):** UI becomes a vintage sketchbook. User clicks 3D/HTML objects (leaves, Kalimba) to trigger spatial audio.
+- **Phase 3 (Sound Exploration):** Scene transitions to warm parchment atmosphere with angled top-down camera. User clicks 3 kalimba tine keys to trigger spatial audio. Clicking all 3 triggers Phase 4. A 4096-instance autumn leaf particle system (wind, cursor repulsion, lift/gravity) fills the scene as visual atmosphere — leaves are not clickable. A 3D sketchbook opens on click and auto-closes 1.5s after the last page is read.
 - **Phase 4 (Climax):** Soft purple fireworks particle explosion. The jellyfish light fades. Distant children's laughter plays. Text fades in: "해파리에 독은 없지만". Resets to Phase 1.
 
 ## 5. Global Technical Variables (Strict Color Palette)

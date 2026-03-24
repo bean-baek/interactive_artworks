@@ -12,9 +12,9 @@ type: project
 
 4. **Scene-graph traverse() inside per-frame update** — theater.js updateTheater() called jellyfishContainer.traverse() every frame during the flee animation. Fixed by collecting meshes into _fleeMeshes array at flee-start (inside the click handler) and iterating that array in updateTheater().
 
-5. **Anonymous event listeners with no removal path** — all listeners in theater.js, scene.js, and interaction.js were anonymous. Fixed by extracting named functions and adding dispose* exports (disposeInteraction, disposeTheater, disposeBubbles, disposeMaterials, removeResizeListener).
+5. **Anonymous event listeners with no removal path** — listeners in theater.js and bubbles.js were anonymous. The only dispose exports that actually exist are `disposeTheater()` (theater.js) and `disposeBubbles()` (bubbles.js). There is NO `disposeInteraction`, `disposeMaterials`, or `removeResizeListener` — do not invent these.
 
-6. **No beforeunload teardown** — no renderer.dispose(), no geometry/material/texture disposal anywhere. Fixed by wiring all dispose* functions into a single dispose() hooked to beforeunload in main.js.
+6. **No beforeunload teardown** — `main.js` does not wire any dispose() to beforeunload. Full teardown is not implemented; only `disposeTheater()` and `disposeBubbles()` exist for targeted cleanup.
 
 7. **sparkleMat.opacity initialized to 500** — PointsMaterial opacity was set to 500 (a comment said "driven each frame" but the wrong literal was used). Fixed to 0.04 (the floor value that updateBubbles writes).
 
