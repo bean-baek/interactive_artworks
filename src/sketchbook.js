@@ -396,8 +396,9 @@ validStops.push(bookConfig.length); // final stop = all pages flipped
 export const bookGroup = new THREE.Group();
 // Shift left by half page-width so the book is centered (spine at world x=0)
 bookGroup.position.set(-PAGE_W / 2, 0.3, 3);
-bookGroup.rotation.x = -Math.PI / 2;
+bookGroup.rotation.x = -Math.PI / 2; // lay flat on the ground
 bookGroup.rotation.y = -0.05; // slight angle to show spine depth
+bookGroup.rotation.z = Math.random() * Math.PI * 2;
 bookGroup.visible = false;
 scene.add(bookGroup);
 
