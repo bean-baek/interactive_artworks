@@ -70,10 +70,11 @@ window.addEventListener("mousedown", (e) => {
 // Load GLTF kalimba
 // ---------------------------------------------------------------------------
 const kalimbaRoot = new THREE.Group();
-// Position to match the old procedural kalimba placement
-kalimbaRoot.position.set(0, -2.8, 1.5);
-// Scale up: the GLTF model is ~0.13m wide in real-world units
+kalimbaRoot.position.set(5, 0.3, 3);
 kalimbaRoot.scale.setScalar(10);
+// Lay flat so tines face upward toward the top-down camera
+kalimbaRoot.rotation.x = -Math.PI / 2;
+kalimbaRoot.rotation.z = Math.random() * Math.PI * 2;
 scene.add(kalimbaRoot);
 
 const loader = new GLTFLoader();
@@ -87,16 +88,13 @@ loader.load(
       const node = gltf.scene.getObjectByName(name);
       if (!node) return;
 
-      // Replace material to support emissive hover glow and opacity fade-in
-      node.material = new THREE.MeshPhysicalMaterial({
-        color: 0xb0a898,
-        metalness: 0.85,
-        roughness: 0.2,
-        transparent: true,
-        opacity: 0,
-        emissive: new THREE.Color(0x000000),
-        emissiveIntensity: 0,
-      });
+      // Clone original material to keep GLTF textures; add fade-in + hover glow
+      const mat = node.material.clone();
+      mat.transparent = true;
+      mat.opacity = 0;
+      mat.emissive = new THREE.Color(0x000000);
+      mat.emissiveIntensity = 0;
+      node.material = mat;
 
       node.userData.id = `tine-${i}`;
       hoverT.set(node, 0);
@@ -107,13 +105,10 @@ loader.load(
     // Body mesh — visual only, not interactive
     const body = gltf.scene.getObjectByName("Object_4");
     if (body) {
-      body.material = new THREE.MeshPhysicalMaterial({
-        color: 0x8b6340,
-        metalness: 0.0,
-        roughness: 0.75,
-        transparent: true,
-        opacity: 0,
-      });
+      const mat = body.material.clone();
+      mat.transparent = true;
+      mat.opacity = 0;
+      body.material = mat;
       fadeMeshes.push(body);
     }
   },
