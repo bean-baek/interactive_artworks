@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { scene, camera } from "./scene.js";
-import { isCameraFocused, focusCamera } from "./camera.js";
+import { isCameraFocused, focusCamera, unfocusCamera } from "./camera.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -30,6 +30,9 @@ const airborne = [];
 
 // Click bounce spring — nudges book forward on each page turn
 const clickSpring = { z: 0, vel: 0 };
+
+// End-of-book timer: -1 = idle, >0 = counting down before close+unfocus
+let endTimer = -1;
 
 // ---------------------------------------------------------------------------
 // Utils
@@ -370,7 +373,7 @@ const bookConfig = [
   { front: textures.blank, back: textures.blank, isStop: false }, // [5] 빈 페이지
   { front: textures.page2, back: textures.blank, isStop: true }, // [6] 잎사귀 내용 (멈춤)
   { front: textures.blank, back: textures.blank, isStop: false }, // [7] 빈 페이지
-  { front: textures.page3, back: textures.cover, isStop: true }, // [8] 소리를 찾아보세요 & 뒷면 표지 (멈춤)
+  { front: textures.page3, back: textures.cover, isStop: true, isEnd: true }, // [8] 소리를 찾아보세요 & 뒷면 표지 (멈춤)
 ];
 
 // 책의 전체 페이지 데이터를 생성
@@ -385,7 +388,7 @@ const validStops = [];
 bookConfig.forEach((config, index) => {
   if (config.isStop) validStops.push(index);
 });
-validStops.push(bookConfig.length); // 책을 완전히 덮는 마지막 지점 추가
+validStops.push(bookConfig.length); // final stop = all pages flipped
 
 // ---------------------------------------------------------------------------
 // Book Group Setup
@@ -393,7 +396,7 @@ validStops.push(bookConfig.length); // 책을 완전히 덮는 마지막 지점 
 export const bookGroup = new THREE.Group();
 // Shift left by half page-width so the book is centered (spine at world x=0)
 bookGroup.position.set(-PAGE_W / 2, 0.3, 3);
-bookGroup.rotation.x = -0.12;
+bookGroup.rotation.x = -Math.PI / 2;
 bookGroup.rotation.y = -0.05; // slight angle to show spine depth
 bookGroup.visible = false;
 scene.add(bookGroup);
@@ -487,6 +490,7 @@ window.addEventListener("click", (e) => {
       clickSpring.vel += 0.15;
     }
   }
+  endTimer = -1; // reset end-close countdown on any manual navigation
 });
 
 export function activateSketchbook() {
@@ -500,9 +504,24 @@ export function activateSketchbook() {
 export function updateSketchbook(delta, elapsed) {
   if (!bookGroup.visible) return;
 
-  // 1. 포커스가 나가면 타겟을 표지(0)로 변경
+  // Reset to cover when camera unfocuses (scroll out or end-close)
   if (!isCameraFocused && currentPage !== 0) {
     currentPage = 0;
+    endTimer = -1;
+  }
+
+  // End-of-book: all pages fully turned → wait 1.5s then close + unfocus
+  const atEnd =
+    currentPage === bookConfig.length && displayedPage === bookConfig.length;
+  if (atEnd && endTimer === -1) {
+    endTimer = 1.5;
+  }
+  if (endTimer > 0) {
+    endTimer -= delta;
+    if (endTimer <= 0) {
+      endTimer = -1;
+      unfocusCamera(); // existing !isCameraFocused check closes the book automatically
+    }
   }
 
   // ── Fade-in (~2.5s) ───────────────────────────────────────────────────────
@@ -580,7 +599,8 @@ export function updateSketchbook(delta, elapsed) {
     // Snap to target when nearly there to prevent oscillation / z-fighting
     const targetZ = stackZ + liftZ;
     const zDiff = targetZ - mesh.position.z;
-    mesh.position.z = Math.abs(zDiff) < 0.0005 ? targetZ : mesh.position.z + zDiff * 0.18;
+    mesh.position.z =
+      Math.abs(zDiff) < 0.0005 ? targetZ : mesh.position.z + zDiff * 0.18;
 
     // renderOrder: turning page always on top; unflipped = front cover highest; flipped = most recent on top
     if (airborne[p]) {
