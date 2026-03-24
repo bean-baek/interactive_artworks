@@ -72,3 +72,13 @@ export const tentacleMaterial = new THREE.MeshPhysicalMaterial({
   opacity: 0.8,
   reflectivity: 900,
 });
+const textureLoader = new THREE.TextureLoader();
+const leafTexture = textureLoader.load("assets/textures/leaf_texture.png");
+export const leafMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff, // 기본색 (인스턴스 컬러가 덮어씌워짐)
+  map: leafTexture, // 나뭇잎 이미지
+  transparent: true,
+  alphaTest: 0.5, // 투명도 충돌(Flicker)을 방지하는 아주 좋은 옵션
+  side: THREE.DoubleSide,
+  depthWrite: false,
+});
